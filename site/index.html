@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plan sal P-14</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: wybór tygodnia i dnia, pod spodem siatka godzina × sala (sale jako kolumny) */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --fg:#1b1f27; --muted:#5f6878; --line:#dde1e8; --line-soft:#eceef2;
+  --accent:#1f5fbf; --accent-soft:#e3ecfa;
+  --w:#c2410c; --w-bg:#fdeee5; --l:#1f6f4a; --l-bg:#e3f3ea; --p:#6d3fc0; --p-bg:#efe8fb; --s:#a1660a; --s-bg:#fbf1dc;
+  --font-display:"Space Grotesk",system-ui,sans-serif; --font-body:"IBM Plex Sans",system-ui,sans-serif; --font-mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#12151b; --surface:#1a1e26; --fg:#e7eaf0; --muted:#9aa3b3; --line:#2c323d; --line-soft:#222731;
+  --accent:#7aa7ef; --accent-soft:#1f2b40;
+  --w:#f59a6b; --w-bg:#3a2419; --l:#6fd1a0; --l-bg:#173226; --p:#b99af2; --p-bg:#2a2140; --s:#e8bb63; --s-bg:#352a14; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.45}
+.wrap{max-width:1240px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:4px 0 0}
+.sub a{color:var(--accent)}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px}
+.seg button{font:inherit;font-weight:500;border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:6px;cursor:pointer}
+.seg button:hover{color:var(--fg)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.seg button:focus-visible,.ev:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg .n{font-family:var(--font-mono);font-size:.75rem;opacity:.7;margin-left:4px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:.8rem}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.board{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.grid{display:grid;grid-template-columns:52px repeat(var(--rooms),minmax(150px,1fr));min-width:calc(52px + var(--rooms)*150px)}
+.colhead{background:var(--surface);border-bottom:1px solid var(--line);padding:10px 8px;font-family:var(--font-display);font-weight:600;font-size:1rem;display:flex;flex-direction:column;gap:1px}
+.colhead small{font-family:var(--font-body);font-weight:400;color:var(--muted);font-size:.75rem}
+.colhead+.colhead,.col+.col,.times+.col{border-left:1px solid var(--line-soft)}
+.times,.col{position:relative;height:calc(var(--span)*64px)}
+.times div{position:absolute;right:8px;transform:translateY(-50%);font-family:var(--font-mono);font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.times div:first-child{transform:none}
+.col .hl{position:absolute;left:0;right:0;border-top:1px solid var(--line-soft)}
+.col .empty{position:absolute;inset:40% 8px auto;text-align:center;color:var(--muted);font-size:.8rem}
+.ev{position:absolute;border-radius:6px;padding:5px 7px;overflow:hidden;cursor:pointer;border:0;text-align:left;font:inherit;display:flex;flex-direction:column;gap:2px;border-left:3px solid currentColor}
+.ev.W{background:var(--w-bg);color:var(--w)} .ev.L{background:var(--l-bg);color:var(--l)} .ev.P{background:var(--p-bg);color:var(--p)} .ev.S{background:var(--s-bg);color:var(--s)}
+.ev .t{font-family:var(--font-mono);font-size:.7rem;font-variant-numeric:tabular-nums}
+.ev .nm{color:var(--fg);font-weight:500;font-size:.8rem;line-height:1.25}
+.ev .who{color:var(--muted);font-size:.72rem}
+.detail{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;min-width:0}
+.detail h2{grid-column:1/-1;margin:0 0 6px;font-family:var(--font-display);font-size:1.1rem;font-weight:600}
+.detail dt{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+.detail dd{margin:0;min-width:0}
+.detail a{color:var(--accent)}
+.hint{color:var(--muted);font-size:.85rem}
+.error{background:var(--w-bg);color:var(--fg);border-radius:10px;padding:14px 16px}
+@media (max-width:600px){h1{font-size:1.4rem}.detail{grid-template-columns:1fr}.detail dt{padding-top:8px}}
+@media (prefers-reduced-motion:no-preference){.ev{transition:filter .12s}.ev:hover{filter:brightness(.97)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">Plan sal</h1>
+      <p class="sub" id="sub">Wczytywanie planu…</p>
+    </div>
+    <div class="legend" aria-label="Legenda">
+      <span><i style="background:var(--w)"></i>Wykład</span>
+      <span><i style="background:var(--l)"></i>Laboratorium</span>
+      <span><i style="background:var(--p)"></i>Projekt</span>
+      <span><i style="background:var(--s)"></i>Seminarium</span>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="seg" id="days" role="group" aria-label="Dzień tygodnia"></div>
+    <div class="seg" id="weeks" role="group" aria-label="Tydzień"></div>
+  </div>
+
+  <div class="board"><div class="grid" id="grid"></div></div>
+  <div id="detail" class="hint">Kliknij zajęcia, żeby zobaczyć prowadzących i link do USOS.</div>
+</div>
+
+<script>
+const DAYS = ["Poniedziałek","Wtorek","Środa","Czwartek","Piątek","Sobota","Niedziela"];
+const toMin = s => { const [h,m] = s.split(":").map(Number); return h*60+m; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const kind = e => (e.info.match(/^([A-Z])/)||[,"L"])[1];
+const pad = n => String(n).padStart(2,"0");
+const ymd = t => `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+const dateOf = (week, day) => { const [y,m,d] = week.split("-").map(Number); const t = new Date(y, m-1, d + DAYS.indexOf(day)); return `${pad(t.getDate())}.${pad(t.getMonth()+1)}`; };
+const people = e => [].concat(e.people || []);
+
+const now = new Date();
+const todayName = DAYS[(now.getDay()+6)%7];
+const thisWeek = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay()+6)%7));
+
+let D, WEEKS, USED_DAYS, START, END, state;
+const weeksEl = document.getElementById("weeks"), daysEl = document.getElementById("days"), gridEl = document.getElementById("grid"), detailEl = document.getElementById("detail");
+
+fetch("data.json", {cache: "no-cache"}).then(r => { if(!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
+  D = data;
+  document.title = `Plan sal ${D.building}`;
+  document.getElementById("title").textContent = D.buildingName || `Budynek ${D.building}`;
+  document.getElementById("sub").innerHTML = `Plan sal na wybrany tydzień · źródło: <a href="${esc(D.source)}" target="_blank" rel="noopener">USOSweb PWr</a> · zaktualizowano ${esc(D.generated)}`;
+  // pokaż ten tydzień i następny; gdy dane są starsze, pokaż najbliższe dostępne
+  const future = D.weeks.filter(w => w >= thisWeek);
+  WEEKS = (future.length ? future : D.weeks.slice(-1)).slice(0, 2);
+  USED_DAYS = DAYS.slice(0,5).concat(DAYS.slice(5).filter(d => D.entries.some(e => e.day === d)));
+  const all = D.entries.length ? D.entries : [{start:"8:00",end:"16:00"}];
+  START = Math.floor(Math.min(...all.map(e=>toMin(e.start)))/60)*60;
+  END = Math.ceil(Math.max(...all.map(e=>toMin(e.end)))/60)*60;
+  state = { week: WEEKS[0], day: USED_DAYS.includes(todayName) ? todayName : USED_DAYS[0] };
+  weeksEl.innerHTML = WEEKS.map(w => {
+    const label = w === thisWeek ? "Ten tydzień" : (w === ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay()+6)%7 + 7)) ? "Następny tydzień" : "Tydzień");
+    return `<button type="button" data-w="${w}">${label}<span class="n">${dateOf(w,"Poniedziałek")}–${dateOf(w,"Niedziela")}</span></button>`;
+  }).join("");
+  render();
+}).catch(err => {
+  document.getElementById("sub").textContent = "";
+  gridEl.parentElement.outerHTML = `<div class="error">Nie udało się wczytać planu (data.json). Odśwież stronę za chwilę.</div>`;
+});
+
+weeksEl.addEventListener("click", ev => { const b = ev.target.closest("button"); if(!b) return; state.week = b.dataset.w; render(); });
+daysEl.addEventListener("click", ev => { const b = ev.target.closest("button"); if(!b) return; state.day = b.dataset.d; render(); });
+
+function lanes(list){
+  list.sort((a,b)=>toMin(a.start)-toMin(b.start));
+  const ends=[]; list.forEach(e=>{ let i=ends.findIndex(x=>x<=toMin(e.start)); if(i<0){i=ends.length;ends.push(0);} ends[i]=toMin(e.end); e._lane=i; });
+  list.forEach(e=>{ e._n = 1 + Math.max(0,...list.filter(o=>toMin(o.start)<toMin(e.end)&&toMin(o.end)>toMin(e.start)).map(o=>o._lane)); });
+  return list;
+}
+
+function render(){
+  weeksEl.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.w===state.week));
+  daysEl.innerHTML = USED_DAYS.map(d => `<button type="button" data-d="${d}" aria-pressed="${d===state.day}">${d} ${dateOf(state.week,d)}<span class="n">${D.entries.filter(e=>e.week===state.week&&e.day===d).length}</span></button>`).join("");
+  detailEl.className = "hint";
+  detailEl.textContent = "Kliknij zajęcia, żeby zobaczyć prowadzących i link do USOS.";
+  const rooms = D.rooms, span = (END-START)/60;
+  gridEl.style.setProperty("--rooms", rooms.length);
+  gridEl.style.setProperty("--span", span);
+  let h = `<div class="colhead"></div>` + rooms.map(r=>`<div class="colhead">Sala ${esc(r.name)}<small>${esc(r.cap)} miejsc</small></div>`).join("");
+  h += `<div class="times">` + Array.from({length:span+1},(_,i)=>`<div style="top:${i*64}px">${START/60+i}:00</div>`).join("") + `</div>`;
+  rooms.forEach(r=>{
+    const list = lanes(D.entries.map((e,i)=>Object.assign({_i:i},e)).filter(e=>e.room===r.name && e.week===state.week && e.day===state.day));
+    h += `<div class="col">` + Array.from({length:span},(_,i)=>`<div class="hl" style="top:${i*64}px"></div>`).join("");
+    if(!list.length) h += `<div class="empty">brak zajęć</div>`;
+    list.forEach(e=>{
+      const top=(toMin(e.start)-START)*64/60, ht=(toMin(e.end)-toMin(e.start))*64/60-3, w=100/e._n;
+      h += `<button type="button" class="ev ${kind(e)}" data-i="${e._i}" style="top:${top}px;height:${ht}px;left:calc(${e._lane*w}% + 3px);width:calc(${w}% - 6px)" title="${esc(e.name)}">
+        <span class="t">${e.start}–${e.end} · ${esc(e.info.replace(/\s*\(.*\)$/,""))}</span>
+        <span class="nm">${esc(e.name)}</span>
+        <span class="who">${esc(people(e).join(", "))}</span></button>`;
+    });
+    h += `</div>`;
+  });
+  gridEl.innerHTML = h;
+}
+
+gridEl.addEventListener("click", ev=>{
+  const b = ev.target.closest(".ev"); if(!b) return; const e = D.entries[+b.dataset.i];
+  detailEl.className = "detail";
+  detailEl.innerHTML = `<h2>${esc(e.name)}</h2>
+   <dt>Kod</dt><dd>${esc(e.code)}</dd>
+   <dt>Zajęcia</dt><dd>${esc(e.type)}</dd>
+   <dt>Termin</dt><dd>${esc(e.day.toLowerCase())} ${dateOf(e.week,e.day)}, ${e.start}–${e.end}</dd>
+   <dt>Sala</dt><dd>${esc(e.room)}, budynek ${esc(D.building)}</dd>
+   <dt>Prowadzący</dt><dd>${esc(people(e).join(", "))||"—"}</dd>
+   ${e.link ? `<dt>USOS</dt><dd><a href="${esc(e.link)}" target="_blank" rel="noopener">Strona zajęć</a></dd>` : ""}`;
+});
+</script>
+</body>
+</html>
