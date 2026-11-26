@@ -2,8 +2,12 @@
 # Działa w Windows PowerShell 5.1 i w PowerShell 7 (GitHub Actions, ubuntu-latest).
 param(
   [string]$Building = 'P-14',
-  [string]$OutFile  = 'site/data.json',
-  [int]$Weeks       = 3
+  [string]$OutFile    = 'site/data.json',
+  [int]$WeeksBack     = 2,     # ile tygodni wstecz pobrać ponownie
+  [int]$WeeksAhead    = 20,    # ile tygodni do przodu pobrać
+  [string]$From       = '',    # opcjonalnie: pobierz od tej daty (np. początek semestru), yyyy-MM-dd
+  [string[]]$Previous = @(),   # poprzednie pliki data.json: tygodnie spoza zakresu zostają z nich (pierwszy plik ma pierwszeństwo)
+  [int]$KeepDays      = 400    # starsze tygodnie są usuwane
 )
 $ErrorActionPreference = 'Stop'
 $base = 'https://web.usos.pwr.edu.pl/kontroler.php'
@@ -35,7 +39,15 @@ foreach ($id in 'Europe/Warsaw', 'Central European Standard Time') {
 }
 $now = if ($tz) { [System.TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $tz) } else { [DateTime]::Now }
 $monday = $now.Date.AddDays(-(([int]$now.DayOfWeek + 6) % 7))
-$weekList = @(0..($Weeks - 1) | ForEach-Object { $monday.AddDays(7 * $_).ToString('yyyy-MM-dd') })
+$first = $monday.AddDays(-7 * $WeeksBack)
+if ($From) {
+  $f = [DateTime]::ParseExact($From, 'yyyy-MM-dd', $null)
+  $first = $f.AddDays(-(([int]$f.DayOfWeek + 6) % 7))
+}
+$last = $monday.AddDays(7 * $WeeksAhead)
+$weekList = @()
+for ($w = $first; $w -le $last; $w = $w.AddDays(7)) { $weekList += $w.ToString('yyyy-MM-dd') }
+Write-Host "Tygodnie do pobrania: $($weekList[0]) .. $($weekList[-1]) ($($weekList.Count))"
 
 # Lista sal z karty budynku
 $bud = Get-Page "$base`?_action=katalog2/jednostki/pokazBudynek&bud_kod=$([uri]::EscapeDataString($Building))"
@@ -81,6 +93,28 @@ foreach ($week in $weekList) {
   }
   Write-Host "Tydzień ${week}: $(@($entries | Where-Object week -eq $week).Count) zajęć"
 }
+
+# Dołącz tygodnie z poprzednich danych, których teraz nie pobieraliśmy
+$allWeeks = New-Object System.Collections.Generic.SortedSet[string]
+foreach ($w in $weekList) { [void]$allWeeks.Add($w) }
+$cutoff = $monday.AddDays(-$KeepDays).ToString('yyyy-MM-dd')
+$taken = New-Object System.Collections.Generic.HashSet[string]
+foreach ($w in $weekList) { [void]$taken.Add($w) }
+foreach ($p in $Previous) {
+  if (-not $p -or -not (Test-Path $p)) { continue }
+  try {
+    $prev = [System.IO.File]::ReadAllText((Resolve-Path $p).Path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+    $fresh = @($prev.weeks | Where-Object { -not $taken.Contains($_) -and $_ -ge $cutoff })
+    $kept = 0
+    foreach ($e in $prev.entries) {
+      if ($fresh -contains $e.week) { [void]$entries.Add($e); $kept++ }
+    }
+    foreach ($w in $fresh) { [void]$allWeeks.Add($w); [void]$taken.Add($w) }
+    Write-Host "Z $p zachowano $($fresh.Count) tygodni ($kept zajęć)"
+  } catch { Write-Host "Nie udało się odczytać ${p}: $_" }
+}
+$weekList = @($allWeeks)
+$entries = [System.Collections.ArrayList]@($entries | Sort-Object week, room, day, { [int]($_.start -replace ':','') })
 
 $out = [pscustomobject]@{
   building     = $Building

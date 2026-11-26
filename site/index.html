@@ -33,6 +33,17 @@ h1{font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;te
 .seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
 .seg button:focus-visible,.ev:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .seg .n{font-family:var(--font-mono);font-size:.75rem;opacity:.7;margin-left:4px}
+.weeknav{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
+.navbtn{font:inherit;font-weight:500;border:0;background:transparent;color:var(--fg);padding:6px 10px;border-radius:6px;cursor:pointer}
+.navbtn:hover:not(:disabled){background:var(--accent-soft);color:var(--accent)}
+.navbtn:disabled{color:var(--line);cursor:default}
+.navbtn:focus-visible,.datepick input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.weeklabel{display:flex;flex-direction:column;align-items:center;min-width:9.5rem;line-height:1.2;padding:0 4px}
+.weeklabel strong{font-weight:600;font-size:.85rem}
+.weeklabel span{font-family:var(--font-mono);font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.datepick input{font:inherit;font-size:.85rem;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.nodata{grid-column:1/-1;padding:40px 16px;text-align:center;color:var(--muted)}
 .legend{display:flex;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:.8rem}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
@@ -79,7 +90,13 @@ h1{font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;te
 
   <div class="controls">
     <div class="seg" id="days" role="group" aria-label="Dzień tygodnia"></div>
-    <div class="seg" id="weeks" role="group" aria-label="Tydzień"></div>
+    <div class="weeknav" role="group" aria-label="Tydzień">
+      <button type="button" class="navbtn" id="prevWeek" aria-label="Poprzedni tydzień">◀</button>
+      <div class="weeklabel"><strong id="weekName">Tydzień</strong><span id="weekRange"></span></div>
+      <button type="button" class="navbtn" id="nextWeek" aria-label="Następny tydzień">▶</button>
+      <button type="button" class="navbtn" id="todayBtn">Dziś</button>
+      <label class="datepick"><span class="sr-only">Wybierz datę</span><input type="date" id="datePick"></label>
+    </div>
   </div>
 
   <div class="board"><div class="grid" id="grid"></div></div>
@@ -101,32 +118,42 @@ const todayName = DAYS[(now.getDay()+6)%7];
 const thisWeek = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay()+6)%7));
 
 let D, WEEKS, USED_DAYS, START, END, state;
-const weeksEl = document.getElementById("weeks"), daysEl = document.getElementById("days"), gridEl = document.getElementById("grid"), detailEl = document.getElementById("detail");
+const $ = id => document.getElementById(id);
+const addDays = (week, n) => { const [y,m,d] = week.split("-").map(Number); return ymd(new Date(y, m-1, d + n)); };
+const mondayOf = s => { const [y,m,d] = s.split("-").map(Number); const t = new Date(y, m-1, d); return ymd(new Date(y, m-1, d - (t.getDay()+6)%7)); };
+const daysEl = document.getElementById("days"), gridEl = document.getElementById("grid"), detailEl = document.getElementById("detail");
 
 fetch("data.json", {cache: "no-cache"}).then(r => { if(!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
   D = data;
   document.title = `Plan sal ${D.building}`;
   document.getElementById("title").textContent = D.buildingName || `Budynek ${D.building}`;
   document.getElementById("sub").innerHTML = `Plan sal na wybrany tydzień · źródło: <a href="${esc(D.source)}" target="_blank" rel="noopener">USOSweb PWr</a> · zaktualizowano ${esc(D.generated)}`;
-  // pokaż ten tydzień i następny; gdy dane są starsze, pokaż najbliższe dostępne
-  const future = D.weeks.filter(w => w >= thisWeek);
-  WEEKS = (future.length ? future : D.weeks.slice(-1)).slice(0, 2);
+  WEEKS = [].concat(D.weeks).sort();
   USED_DAYS = DAYS.slice(0,5).concat(DAYS.slice(5).filter(d => D.entries.some(e => e.day === d)));
   const all = D.entries.length ? D.entries : [{start:"8:00",end:"16:00"}];
   START = Math.floor(Math.min(...all.map(e=>toMin(e.start)))/60)*60;
   END = Math.ceil(Math.max(...all.map(e=>toMin(e.end)))/60)*60;
-  state = { week: WEEKS[0], day: USED_DAYS.includes(todayName) ? todayName : USED_DAYS[0] };
-  weeksEl.innerHTML = WEEKS.map(w => {
-    const label = w === thisWeek ? "Ten tydzień" : (w === ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay()+6)%7 + 7)) ? "Następny tydzień" : "Tydzień");
-    return `<button type="button" data-w="${w}">${label}<span class="n">${dateOf(w,"Poniedziałek")}–${dateOf(w,"Niedziela")}</span></button>`;
-  }).join("");
+  const fromHash = (location.hash.match(/^#w(\d{4}-\d{2}-\d{2})$/) || [])[1];
+  state = { week: fromHash || thisWeek, day: USED_DAYS.includes(todayName) ? todayName : USED_DAYS[0] };
+  $("datePick").min = WEEKS[0];
+  $("datePick").max = addDays(WEEKS[WEEKS.length-1], 6);
   render();
 }).catch(err => {
   document.getElementById("sub").textContent = "";
   gridEl.parentElement.outerHTML = `<div class="error">Nie udało się wczytać planu (data.json). Odśwież stronę za chwilę.</div>`;
 });
 
-weeksEl.addEventListener("click", ev => { const b = ev.target.closest("button"); if(!b) return; state.week = b.dataset.w; render(); });
+function goWeek(w){ state.week = w; history.replaceState(null, "", w === thisWeek ? location.pathname : "#w" + w); render(); }
+$("prevWeek").addEventListener("click", () => goWeek(addDays(state.week, -7)));
+$("nextWeek").addEventListener("click", () => goWeek(addDays(state.week, 7)));
+$("todayBtn").addEventListener("click", () => { state.day = USED_DAYS.includes(todayName) ? todayName : state.day; goWeek(thisWeek); });
+$("datePick").addEventListener("change", ev => {
+  const v = ev.target.value; if(!v) return;
+  const [y,m,d] = v.split("-").map(Number); const dn = DAYS[(new Date(y,m-1,d).getDay()+6)%7];
+  if (USED_DAYS.includes(dn)) state.day = dn;
+  goWeek(mondayOf(v));
+});
+window.addEventListener("hashchange", () => { const w = (location.hash.match(/^#w(\d{4}-\d{2}-\d{2})$/) || [])[1]; if (w && D) { state.week = w; render(); } });
 daysEl.addEventListener("click", ev => { const b = ev.target.closest("button"); if(!b) return; state.day = b.dataset.d; render(); });
 
 function lanes(list){
@@ -137,10 +164,21 @@ function lanes(list){
 }
 
 function render(){
-  weeksEl.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.w===state.week));
+  const diff = Math.round((new Date(state.week) - new Date(thisWeek)) / 864e5 / 7);
+  $("weekName").textContent = diff === 0 ? "Ten tydzień" : diff === 1 ? "Następny tydzień" : diff === -1 ? "Poprzedni tydzień" : diff > 0 ? `Za ${diff} tyg.` : `${-diff} tyg. temu`;
+  $("weekRange").textContent = `${dateOf(state.week,"Poniedziałek")}–${dateOf(state.week,"Niedziela")}`;
+  $("prevWeek").disabled = state.week <= WEEKS[0];
+  $("nextWeek").disabled = state.week >= WEEKS[WEEKS.length-1];
+  $("datePick").value = state.week;
+  const known = WEEKS.includes(state.week);
   daysEl.innerHTML = USED_DAYS.map(d => `<button type="button" data-d="${d}" aria-pressed="${d===state.day}">${d} ${dateOf(state.week,d)}<span class="n">${D.entries.filter(e=>e.week===state.week&&e.day===d).length}</span></button>`).join("");
   detailEl.className = "hint";
   detailEl.textContent = "Kliknij zajęcia, żeby zobaczyć prowadzących i link do USOS.";
+  if (!known) {
+    gridEl.style.setProperty("--rooms", D.rooms.length);
+    gridEl.innerHTML = `<div class="nodata">Brak planu dla tego tygodnia. Dostępny zakres: ${dateOf(WEEKS[0],"Poniedziałek")}.${WEEKS[0].slice(0,4)} – ${dateOf(WEEKS[WEEKS.length-1],"Niedziela")}.${addDays(WEEKS[WEEKS.length-1],6).slice(0,4)}.</div>`;
+    return;
+  }
   const rooms = D.rooms, span = (END-START)/60;
   gridEl.style.setProperty("--rooms", rooms.length);
   gridEl.style.setProperty("--span", span);

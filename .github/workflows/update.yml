@@ -24,19 +24,25 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Poprzednio opublikowany plan: z niego zostają starsze tygodnie
+      - name: Pobierz poprzedni plan
+        run: |
+          cp site/data.json seed.json
+          curl -fsSL "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data.json" -o previous.json \
+            || cp seed.json previous.json
+
       - name: Pobierz plan z USOS
         id: scrape
         continue-on-error: true
         shell: pwsh
-        run: ./scrape.ps1 -Building P-14 -OutFile site/data.json -Weeks 3
+        run: ./scrape.ps1 -Building P-14 -OutFile site/data.json -WeeksBack 2 -WeeksAhead 20 -Previous previous.json,seed.json
 
       # USOS bywa w przerwie technicznej: wtedy zostaje ostatni opublikowany plan
       - name: Zachowaj poprzedni plan, jeśli USOS nie odpowiada
         if: steps.scrape.outcome == 'failure'
         run: |
           echo "::warning::USOS niedostępny, publikuję poprzedni plan"
-          curl -fsSL "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data.json" -o site/data.json \
-            || echo "Brak opublikowanej wersji, zostaje data.json z repozytorium"
+          cp previous.json site/data.json
 
       - uses: actions/configure-pages@v6
 
